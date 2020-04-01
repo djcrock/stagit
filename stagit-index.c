@@ -3,12 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 #include <unistd.h>
-
-#include <git2.h>
-
-static git_repository *repo;
 
 static const char *relpath = "";
 
@@ -46,68 +41,31 @@ xmlencode(FILE *fp, const char *s, size_t len)
 }
 
 void
-printtimeshort(FILE *fp, const git_time *intime)
-{
-	struct tm *intm;
-	time_t t;
-	char out[32];
-
-	t = (time_t)intime->time;
-	if (!(intm = gmtime(&t)))
-		return;
-	strftime(out, sizeof(out), "%Y-%m-%d %H:%M", intm);
-	fputs(out, fp);
-}
-
-void
 writeheader(FILE *fp)
 {
 	fputs("<!DOCTYPE html>\n"
-		"<html>\n<head>\n"
-		"<meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\" />\n"
+		"<html lang=\"en\">\n<head>\n"
+		"<meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\">\n"
+		"<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
 		"<title>", fp);
 	xmlencode(fp, description, strlen(description));
 	fprintf(fp, "</title>\n<link rel=\"icon\" type=\"image/png\" href=\"%sfavicon.png\" />\n", relpath);
 	fprintf(fp, "<link rel=\"stylesheet\" type=\"text/css\" href=\"%sstyle.css\" />\n", relpath);
-	fputs("</head>\n<body>\n", fp);
-	fprintf(fp, "<table>\n<tr><td><img src=\"%slogo.png\" alt=\"\" width=\"32\" height=\"32\" /></td>\n"
-	        "<td><span class=\"desc\">", relpath);
+	fputs("</head>\n<body>\n<h1>", fp);
 	xmlencode(fp, description, strlen(description));
-	fputs("</span></td></tr><tr><td></td><td>\n"
-		"</td></tr>\n</table>\n<hr/>\n<div id=\"content\">\n"
-		"<table id=\"index\"><thead>\n"
-		"<tr><td><b>Name</b></td><td><b>Description</b></td>"
-		"<td><b>Last commit</b></td></tr>"
-		"</thead><tbody>\n", fp);
+	fputs("</h1>\n<main>\n<dl>\n", fp);
 }
 
 void
 writefooter(FILE *fp)
 {
-	fputs("</tbody>\n</table>\n</div>\n</body>\n</html>\n", fp);
+	fputs("</dl>\n</main>\n</body>\n</html>\n", fp);
 }
 
 int
-writelog(FILE *fp)
+writerepo(FILE *fp)
 {
-	git_commit *commit = NULL;
-	const git_signature *author;
-	git_revwalk *w = NULL;
-	git_oid id;
 	char *stripped_name = NULL, *p;
-	int ret = 0;
-
-	git_revwalk_new(&w, repo);
-	git_revwalk_push_head(w);
-	git_revwalk_simplify_first_parent(w);
-
-	if (git_revwalk_next(&id, w) ||
-	    git_commit_lookup(&commit, repo, &id)) {
-		ret = -1;
-		goto err;
-	}
-
-	author = git_commit_author(commit);
 
 	/* strip .git suffix */
 	if (!(stripped_name = strdup(name)))
@@ -116,23 +74,17 @@ writelog(FILE *fp)
 		if (!strcmp(p, ".git"))
 			*p = '\0';
 
-	fputs("<tr><td><a href=\"", fp);
+	fputs("<dt><a href=\"", fp);
 	xmlencode(fp, stripped_name, strlen(stripped_name));
 	fputs("/log.html\">", fp);
 	xmlencode(fp, stripped_name, strlen(stripped_name));
-	fputs("</a></td><td>", fp);
+	fputs("</a></dt>\n<dd>", fp);
 	xmlencode(fp, description, strlen(description));
-	fputs("</td><td>", fp);
-	if (author)
-		printtimeshort(fp, &(author->when));
-	fputs("</td></tr>", fp);
+	fputs("</dd>\n", fp);
 
-	git_commit_free(commit);
-err:
-	git_revwalk_free(w);
 	free(stripped_name);
 
-	return ret;
+	return 0;
 }
 
 int
@@ -141,14 +93,12 @@ main(int argc, char *argv[])
 	FILE *fp;
 	char path[PATH_MAX], repodirabs[PATH_MAX + 1];
 	const char *repodir;
-	int i, ret = 0;
+	int i;
 
 	if (argc < 2) {
 		fprintf(stderr, "%s [repodir...]\n", argv[0]);
 		return 1;
 	}
-
-	git_libgit2_init();
 
 #ifdef __OpenBSD__
 	for (i = 1; i < argc; i++)
@@ -165,13 +115,6 @@ main(int argc, char *argv[])
 		repodir = argv[i];
 		if (!realpath(repodir, repodirabs))
 			err(1, "realpath");
-
-		if (git_repository_open_ext(&repo, repodir,
-		    GIT_REPOSITORY_OPEN_NO_SEARCH, NULL)) {
-			fprintf(stderr, "%s: cannot open repository\n", argv[0]);
-			ret = 1;
-			continue;
-		}
 
 		/* use directory name as name */
 		if ((name = strrchr(repodirabs, '/')))
@@ -191,13 +134,9 @@ main(int argc, char *argv[])
 				description[0] = '\0';
 			fclose(fp);
 		}
-		writelog(stdout);
+		writerepo(stdout);
 	}
 	writefooter(stdout);
 
-	/* cleanup */
-	git_repository_free(repo);
-	git_libgit2_shutdown();
-
-	return ret;
+	return 0;
 }
