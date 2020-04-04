@@ -344,6 +344,7 @@ writeheader(FILE *fp, const char *title)
 	fputs("<!DOCTYPE html>\n"
 		"<html>\n<head>\n"
 		"<meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\" />\n"
+		"<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
 		"<title>", fp);
 	xmlencode(fp, title, strlen(title));
 	if (title[0] && strippedname[0])
@@ -356,22 +357,20 @@ writeheader(FILE *fp, const char *title)
 	fprintf(fp, "<link rel=\"alternate\" type=\"application/atom+xml\" title=\"%s Atom Feed\" href=\"%satom.xml\" />\n",
 		name, relpath);
 	fprintf(fp, "<link rel=\"stylesheet\" type=\"text/css\" href=\"%sstyle.css\" />\n", relpath);
-	fputs("</head>\n<body>\n<table><tr><td>", fp);
-	fprintf(fp, "<a href=\"../%s\"><img src=\"%slogo.png\" alt=\"\" width=\"32\" height=\"32\" /></a>",
-	        relpath, relpath);
-	fputs("</td><td><h1>", fp);
+	fputs("</head>\n<body>\n<header>\n<h1>", fp);
 	xmlencode(fp, strippedname, strlen(strippedname));
-	fputs("</h1><span class=\"desc\">", fp);
+	fputs("</h1>\n<p class=\"desc\">", fp);
 	xmlencode(fp, description, strlen(description));
-	fputs("</span></td></tr>", fp);
+	fputs("</p>\n", fp);
 	if (cloneurl[0]) {
-		fputs("<tr class=\"url\"><td></td><td>git clone <a href=\"", fp);
+		fputs("<p class=\"url\"><code>git clone <a href=\"", fp);
 		xmlencode(fp, cloneurl, strlen(cloneurl));
 		fputs("\">", fp);
 		xmlencode(fp, cloneurl, strlen(cloneurl));
-		fputs("</a></td></tr>", fp);
+		fputs("</code></a></p>\n", fp);
 	}
-	fputs("<tr><td></td><td>\n", fp);
+	fputs("<nav>\n", fp);
+	fprintf(fp, "<a href=\"%s../\">Home</a> | ", relpath);
 	fprintf(fp, "<a href=\"%slog.html\">Log</a> | ", relpath);
 	fprintf(fp, "<a href=\"%sfiles.html\">Files</a> | ", relpath);
 	fprintf(fp, "<a href=\"%srefs.html\">Refs</a>", relpath);
@@ -384,7 +383,7 @@ writeheader(FILE *fp, const char *title)
 	if (license)
 		fprintf(fp, " | <a href=\"%sfile/%s.html\">LICENSE</a>",
 		        relpath, license);
-	fputs("</td></tr></table>\n<hr/>\n<div id=\"content\">\n", fp);
+	fputs("</nav>\n</header>\n<hr/>\n<div id=\"content\">\n", fp);
 }
 
 void
@@ -397,30 +396,46 @@ int
 writeblobhtml(FILE *fp, const git_blob *blob)
 {
 	size_t n = 0, i, prev;
-	const char *nfmt = "<a href=\"#l%d\" class=\"line\" id=\"l%d\">%7d</a> ";
+	/*const char *nfmt = "<td id=\"l%d\" class=\"ln\" align=\"right\">"
+				"<a href=\"#l%d\">%d</a></td><td>";*/
+	const char *nfmt = "<a id=\"l%d\" data-line-number=\"%d\" class=\"ln\" href=\"#l%d\"></a>";
+
 	const char *s = git_blob_rawcontent(blob);
 	git_off_t len = git_blob_rawsize(blob);
 
-	fputs("<pre id=\"blob\">\n", fp);
+	fputs("<table><tbody><tr>\n<td>\n", fp);
 
 	if (len > 0) {
-		for (i = 0, prev = 0; i < (size_t)len; i++) {
+		/* print the line numbers */
+		for (i = 0; i < (size_t)len; i++) {
 			if (s[i] != '\n')
 				continue;
 			n++;
 			fprintf(fp, nfmt, n, n, n);
-			xmlencode(fp, &s[prev], i - prev + 1);
 			prev = i + 1;
 		}
 		/* trailing data */
 		if ((len - prev) > 0) {
 			n++;
 			fprintf(fp, nfmt, n, n, n);
+		}
+
+		fputs("</td>\n<td><pre id=\"blob\"><code>", fp);
+
+		/* print the code */
+		for (i = 0, prev = 0; i < (size_t)len; i++) {
+			if (s[i] != '\n')
+				continue;
+			xmlencode(fp, &s[prev], i - prev + 1);
+			prev = i + 1;
+		}
+		/* trailing data */
+		if ((len - prev) > 0) {
 			xmlencode(fp, &s[prev], len - prev);
 		}
 	}
 
-	fputs("</pre>\n", fp);
+	fputs("</code></pre>\n", fp);
 
 	return n;
 }
