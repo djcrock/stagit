@@ -1,20 +1,23 @@
 body {
 	color: #000;
-	background-color: #fff;
+	background-color: #fafafa;
 	font-family: monospace;
+	max-width: 800px;
+	margin: 0 auto;
+	padding: 5px 15px;
 }
 
 h1, h2, h3, h4, h5, h6 {
-	font-size: 1em;
 	margin: 0;
+	font-weight: 500;
 }
 
-img, h1, h2 {
-	vertical-align: middle;
+h2.desc {
+	font-size: 1em;
 }
 
-img {
-	border: 0;
+dd {
+	margin-bottom: 10px;
 }
 
 a.d,
@@ -36,12 +39,6 @@ a.i {
 #blob {
     white-space: pre;
     padding: 0;
-}
-
-@media screen and (max-width: 500px) {
-    #blob {
-        overflow-x: scroll;
-    }
 }
 
 a.ln {
@@ -73,6 +70,55 @@ table td {
 	padding: 0 0.4em;
 }
 
+article.commit {
+	border: 1px solid black;
+	max-width: 550px;
+	padding: 5px;
+	margin: 10px auto;
+}
+
+article.commit:target {
+	background-color: #fffbdd;
+}
+
+pre.msg {
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+article.commit span.shortstat {
+	float: right;
+	cursor: default;
+}
+
+article.commit address.author {
+	font-style: normal;
+}
+
+article.commit a.email {
+	color: #000;
+	text-decoration: none;
+}
+
+article.commit a.email:hover {
+	color: blue;
+	text-decoration: none;
+}
+
+article.commit + hr {
+	/* HRs are for users with no CSS */
+	display: none;
+}
+
+a.commit-anchor {
+	color: #777;
+	text-decoration: none;
+}
+
+a.commit-anchor:hover {
+	color: blue;
+	text-decoration: none;
+}
 
 #branches td,
 #tags td,
@@ -83,14 +129,12 @@ table td {
 
 #branches tr:hover td,
 #tags tr:hover td,
-#log tr:hover td,
 #files tr:hover td {
 	background-color: #eee;
 }
 
 #tags tr td:nth-child(3),
-#branches tr td:nth-child(3),
-#log tr td:nth-child(2) {
+#branches tr td:nth-child(3) {
 	white-space: normal;
 }
 

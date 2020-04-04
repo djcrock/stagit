@@ -16,6 +16,8 @@
 
 #include "compat.h"
 
+#define SHORT_OID_HEXSZ (GIT_OID_HEXSZ < 8 ? GIT_OID_HEXSZ : 8)
+
 struct deltainfo {
 	git_patch *patch;
 
@@ -334,7 +336,7 @@ printtimeshort(FILE *fp, const git_time *intime)
 	t = (time_t)intime->time;
 	if (!(intm = gmtime(&t)))
 		return;
-	strftime(out, sizeof(out), "%Y-%m-%d %H:%M", intm);
+	strftime(out, sizeof(out), "%Y-%m-%d", intm);
 	fputs(out, fp);
 }
 
@@ -342,7 +344,7 @@ void
 writeheader(FILE *fp, const char *title)
 {
 	fputs("<!DOCTYPE html>\n"
-		"<html>\n<head>\n"
+		"<html lang=\"en\">\n<head>\n"
 		"<meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\" />\n"
 		"<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
 		"<title>", fp);
@@ -357,17 +359,17 @@ writeheader(FILE *fp, const char *title)
 	fprintf(fp, "<link rel=\"alternate\" type=\"application/atom+xml\" title=\"%s Atom Feed\" href=\"%satom.xml\" />\n",
 		name, relpath);
 	fprintf(fp, "<link rel=\"stylesheet\" type=\"text/css\" href=\"%sstyle.css\" />\n", relpath);
-	fputs("</head>\n<body>\n<header>\n<h1>", fp);
+	fputs("</head>\n<body>\n<header>\n<hgroup>\n<h1>", fp);
 	xmlencode(fp, strippedname, strlen(strippedname));
-	fputs("</h1>\n<p class=\"desc\">", fp);
+	fputs("</h1>\n<h2 class=\"desc\">", fp);
 	xmlencode(fp, description, strlen(description));
-	fputs("</p>\n", fp);
+	fputs("</h2>\n</hgroup>\n", fp);
 	if (cloneurl[0]) {
 		fputs("<p class=\"url\"><code>git clone <a href=\"", fp);
 		xmlencode(fp, cloneurl, strlen(cloneurl));
 		fputs("\">", fp);
 		xmlencode(fp, cloneurl, strlen(cloneurl));
-		fputs("</code></a></p>\n", fp);
+		fputs("</a></code></p>\n", fp);
 	}
 	fputs("<nav>\n", fp);
 	fprintf(fp, "<a href=\"%s../\">Home</a> | ", relpath);
@@ -595,25 +597,39 @@ printshowfile(FILE *fp, struct commitinfo *ci)
 void
 writelogline(FILE *fp, struct commitinfo *ci)
 {
-	fputs("<tr><td>", fp);
-	if (ci->author)
+	fprintf(fp, "<article id=\"%s\" class=\"commit\"><h4>\n"
+	        "<a href=\"#%s\" class=\"commit-anchor\">#</a> "
+	        "<a href=\"%scommit/%s.html\" title=\"%s\">%.*s</a>",
+	        ci->oid, ci->oid, relpath, ci->oid, ci->oid, SHORT_OID_HEXSZ, ci->oid);
+	if (ci->author) {
+		fputs(" &mdash; <time datetime=\"", fp);
+		printtimez(fp, &(ci->author->when));
+		fputs("\" title=\"", fp);
+		printtimez(fp, &(ci->author->when));
+		fputs("\">", fp);
 		printtimeshort(fp, &(ci->author->when));
-	fputs("</td><td>", fp);
-	if (ci->summary) {
-		fprintf(fp, "<a href=\"%scommit/%s.html\">", relpath, ci->oid);
-		xmlencode(fp, ci->summary, strlen(ci->summary));
-		fputs("</a>", fp);
+		fputs("</time>", fp);
 	}
-	fputs("</td><td>", fp);
-	if (ci->author)
-		xmlencode(fp, ci->author->name, strlen(ci->author->name));
-	fputs("</td><td class=\"num\" align=\"right\">", fp);
-	fprintf(fp, "%zu", ci->filecount);
-	fputs("</td><td class=\"num\" align=\"right\">", fp);
+	fprintf(fp, " <span class=\"shortstat\">(<span class=\"filecount\" title=\"Files changed\">%zu",
+	        ci->filecount);
+	fputs("</span>, <span class=\"i\" title=\"Lines added\">", fp);
 	fprintf(fp, "+%zu", ci->addcount);
-	fputs("</td><td class=\"num\" align=\"right\">", fp);
+	fputs("</span>, <span class=\"d\" title=\"Lines deleted\">", fp);
 	fprintf(fp, "-%zu", ci->delcount);
-	fputs("</td></tr>\n", fp);
+	fputs("</span>)</span></h4>", fp);
+	if (ci->author) {
+		fputs("<address class=\"author\">", fp);
+		xmlencode(fp, ci->author->name, strlen(ci->author->name));
+		fprintf(fp, " &lt;<a class=\"email\" href=\"mailto:%s\">", ci->author->email);
+		xmlencode(fp, ci->author->email, strlen(ci->author->email));
+		fputs("</a>&gt;</address>", fp);
+	}
+	if (ci->msg) {
+		fputs("<pre class=\"msg\">", fp);
+		xmlencode(fp, ci->msg, strlen(ci->msg));
+		fputs("</pre>", fp);
+	}
+	fputs("</article>\n<hr>\n", fp);
 }
 
 int
@@ -1202,11 +1218,6 @@ main(int argc, char *argv[])
 	relpath = "";
 	mkdir("commit", S_IRWXU | S_IRWXG | S_IRWXO);
 	writeheader(fp, "Log");
-	fputs("<table id=\"log\"><thead>\n<tr><td><b>Date</b></td>"
-	      "<td><b>Commit message</b></td>"
-	      "<td><b>Author</b></td><td class=\"num\" align=\"right\"><b>Files</b></td>"
-	      "<td class=\"num\" align=\"right\"><b>+</b></td>"
-	      "<td class=\"num\" align=\"right\"><b>-</b></td></tr>\n</thead><tbody>\n", fp);
 
 	if (cachefile && head) {
 		/* read from cache file (does not need to exist) */
@@ -1246,7 +1257,6 @@ main(int argc, char *argv[])
 			writelog(fp, head);
 	}
 
-	fputs("</tbody></table>", fp);
 	writefooter(fp);
 	fclose(fp);
 
