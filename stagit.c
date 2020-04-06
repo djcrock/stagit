@@ -398,8 +398,6 @@ int
 writeblobhtml(FILE *fp, const git_blob *blob)
 {
 	size_t n = 0, i, prev;
-	/*const char *nfmt = "<td id=\"l%d\" class=\"ln\" align=\"right\">"
-				"<a href=\"#l%d\">%d</a></td><td>";*/
 	const char *nfmt = "<a id=\"l%d\" data-line-number=\"%d\" class=\"ln\" href=\"#l%d\"></a>";
 
 	const char *s = git_blob_rawcontent(blob);
@@ -675,9 +673,9 @@ writelog(FILE *fp, const git_oid *oid)
 			writelogline(fp, ci);
 			nlogcommits--;
 			if (!nlogcommits && ci->parentoid[0])
-				fputs("<tr><td></td><td colspan=\"5\">"
-				      "More commits remaining [...]</td>"
-				      "</tr>\n", fp);
+				fputs("<article class=\"commit\">\n<h4>"
+				      "More commits remaining [...]"
+				      "</h4>\n</article>\n", fp);
 		}
 
 		if (cachefile)
